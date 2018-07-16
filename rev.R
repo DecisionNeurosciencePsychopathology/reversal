@@ -287,3 +287,31 @@ library(corrplot)
 
 corrplot.mixed(cor(rev[,c(2,4,7:11)], method = "spearman", use = "na.or.complete"), lower.col = "black")
 
+
+
+
+
+
+
+###@#In connection to Matlab:
+rev$rein<-as.numeric(rev$reinf)
+rev$rein[which(rev$rein==0)]<- -1
+rev_sp<-split(rev,rev$ID)
+NU<-lapply(rev_sp,function(x) {
+  unique(x$ID)->idx
+  write.table(data.frame(ID=as.numeric(x$ID),action=as.numeric(x$stim_choice),reinf=as.numeric(x$rein)),file.path(getwd(),"vba_b",paste0(idx,"rev_vba.csv")),row.names = F,col.names = F,sep = ",")
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+

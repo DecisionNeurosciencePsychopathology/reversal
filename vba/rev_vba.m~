@@ -1,8 +1,6 @@
 % function [posterior,out,b] = bandit_vba(bpath,graphics,plot_subject,save_results,parameterization)
-allfile=dir('/Volumes/bek/reversal/vba_b/*.csv');
 
-
-for bpath = {allfile.name}
+for bpath = dir('/Volumes/bek/reversal/vba_b')
 
 
 %% fits RL model to PRL subject data using VBA toolbox
@@ -77,10 +75,9 @@ n_hidden_states = 2; %Track single value + PE
 %u is 2 x ntrials where first row is actions and second row is reward
 
 %b = bandit_vba_read_in_data( 'id',id,'data_dir','subjects'); %REPLACE subjects with local dir
-bpath = char(strcat('/Volumes/bek/reversal/vba_b/',bpath));
 b_csv = csvread(bpath);
 b.ID = unique(b_csv(:,1));
-id=b.ID
+
 %censor = b.chosen_stim==999; %Censor some trials first
 % all we need is 
 % u(1,:) - choices
@@ -154,15 +151,7 @@ options.verbose=1;
 %% Run the vba model
 [posterior,out] = VBA_NLStateSpaceModel(y,u,f_name,g_name,dim,options);
 
-
-
-file_name = sprintf('id_%d_rev_vba',id);
-         file_path = '/Volumes/bek/reversal/vba_output/';
-         file_str = [file_path filesep file_name];
-         save(file_str,'posterior', 'out')
-
-
-%save(char(strcat('/Volumes/bek/reversal/vba_output/',char(id),'vba')),'posterior', 'out')
+save(strcat('/','o'),'posterior', 'out')
 
 
 end

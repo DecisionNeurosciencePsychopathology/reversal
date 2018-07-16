@@ -22,18 +22,14 @@ r = u(2); % make sure rewards are coded 0 = no reward, 1 = reward
 
 alpha = 1./(1+exp(-theta(1))); % learning rate is bounded between 0 and 1.
 
-v1 = x(1);
-v2 = - x(1);
+if u(1)==1
+pe = r-x(1); % prediction error
+elseif u(1)==
+pe = r-(1-x(1)); % prediction error
+end    
 fx = zeros(length(x),1);
 
-if u(1)==1
-pe = r-v1; % prediction error
-fx(1) = v1 + alpha*pe;
-elseif u(1)==0
-pe = r-v2; % prediction error
-fx(1) = v1 - alpha*pe;
-end    
-
+fx(1) = x(1) + alpha*pe;
 
 %tracking PEs for RT analyses
 fx(2) = pe;
