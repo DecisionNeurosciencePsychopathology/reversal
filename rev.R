@@ -32,53 +32,56 @@ setwd("~/Dropbox/USA/Pittsburgh/GitHub/reversal")
 
 load('rev.Rda')
 
+
+############# Data processing - skip and go to analysis ##############
+
 rev_long <- read.csv(file='rev_long.csv', header = TRUE, sep=';')
 rev_short <- read.csv(file='rev_short.csv', header = TRUE, sep=';')
 #rev_spss is actually the same data as rev_short...
 #rev_spss <- read.delim('rev2spss.dat', header=TRUE)
-rev <- left_join(rev_long, rev_short, by = 'ID')
-View(rev)
+rev_prov <- left_join(rev_long, rev_short, by = 'ID')
+View(rev_prov)
 
 design <- read_csv("data/rev_design.csv")
-rev <- left_join(rev, design, by = 'trial')
-rev$reinf <- rev$stim_choice==rev$corr_stim
+rev_prov <- left_join(rev_prov, design, by = 'trial')
+rev_prov$reinf <- rev_prov$stim_choice==rev_prov$corr_stim
 
-test <- rev[,c(2,3,20:23)]
+test <- rev_prov[,c(2,3,20:23)]
 View(test)
 ### quality checks
 
-table(rev$ID)
-table(rev$trial)
+table(rev_prov$ID)
+table(rev_prov$trial)
 
 
-rev$choice <- rev$stim_choice
+rev_prov$choice <- rev_prov$stim_choice
 # remove trials/subjects who selected '3'
-rev$choice[rev$choice=='3'] <- NA
+rev_prov$choice[rev_prov$choice=='3'] <- NA
 #paticipant 46069 has two times the  number of trials, but different ones.
-rev <- rev[rev$trial<81,]
-plot(table(rev$stim_choice,rev$trial))
+rev_prov <- rev_prov[rev_prov$trial<81,]
+plot(table(rev_prov$stim_choice,rev_prov$trial))
 
 # for Anna's records
-# p <- ggplot(rev,aes(stim_choice)) + geom_bar() + facet_wrap(~ID)
+# p <- ggplot(rev_prov,aes(stim_choice)) + geom_bar() + facet_wrap(~ID)
 # ggsave("choice_test.pdf",plot = p, width = 20, height = 20)
 
-rev <- rev[rev$stim_choice!='3',]
-rev$choice <- factor(rev$choice)
+rev_prov <- rev_prov[rev_prov$stim_choice!='3',]
+rev_prov$choice <- factor(rev_prov$choice)
 
 
 #missingness
 library(mice)
-md.pattern(rev)
+md.pattern(rev_prov)
 
 library(VIM)
-rev_aggr = aggr(rev, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labels=names(rev), cex.axis=.7, gap=3, ylab=c("Proportion of missingness","Missingness Pattern"))
+rev_aggr = aggr(rev_prov, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labels=names(rev_prov), cex.axis=.7, gap=3, ylab=c("Proportion of missingness","Missingness Pattern"))
 
 #data processing
-summary(rev)
+summary(rev_prov)
 
-rev <- transform(rev, ID = as.factor(ID), stim_choice = as.factor(stim_choice), stim1pos = as.factor(stim1pos), stim2pos = as.factor(stim2pos))
+rev_prov <- transform(rev_prov, ID = as.factor(ID), stim_choice = as.factor(stim_choice), stim1pos = as.factor(stim1pos), stim2pos = as.factor(stim2pos))
 
-rev <- rev %>% group_by(ID) %>% mutate(choice.lag1 = lag(choice, n=1, order_by=trial),
+rev_prov <- rev_prov %>% group_by(ID) %>% mutate(choice.lag1 = lag(choice, n=1, order_by=trial),
                                                  choice.lag2 = lag(choice, n=2, order_by=trial),
                                        choice.lead1 = lead(choice, n=1, order_by=trial),
                                                  RT.lag1 = lag(RT, n=1, order_by = trial),
@@ -88,13 +91,85 @@ rev <- rev %>% group_by(ID) %>% mutate(choice.lag1 = lag(choice, n=1, order_by=t
                                                  stim1pos.lag2 = lag(stim1pos, n=2, order_by = trial),
                                                  stim2pos.lag1 = lag(stim2pos, n=1, order_by=trial),
                                                  stim2pos.lag2 = lag(stim2pos, n=2, order_by=trial))
-View(rev)
-rev$stay <- rev$choice==rev$choice.lead1
-rev <- rev %>% group_by(ID) %>% mutate(stay.lag1 = lag(stay, n=1, order_by=trial),
+View(rev_prov)
+rev_prov$stay <- rev_prov$choice==rev_prov$choice.lead1
+rev_prov <- rev_prov %>% group_by(ID) %>% mutate(stay.lag1 = lag(stay, n=1, order_by=trial),
                                        stay.lag2 = lag(stay, n=2, order_by=trial))
-                                       
-save(rev, file = 'rev.Rda')
 
+
+#adding demographic variables
+rev_demog <- read_excel("rev_iowa_demog.xlsx")
+rev_demog <- transform(rev_demog, ID = as.factor(ID), race = as.factor(race), ethnicity = as.factor(ethnicity), gender = as.factor(gender),
+                       marital = as.factor(marital), group1_5 = as.factor(group1_5), group1_7 = as.factor(group1_7), group1_5text = as.factor(group1_5text),  group1_5text2 = as.factor(group1_5text2),
+                       method_most_lethal = as.factor(method_most_lethal), anxiety_lifetime = as.factor(anxiety_lifetime),substance_lifetime = as.factor(substance_lifetime), anxiety_current = as.factor(anxiety_current),substance_current = as.factor(substance_current))
+rev_demog <- transform(rev_demog, consent_date_baseline = as.Date(consent_date_baseline), EXIT_date = as.Date(EXIT_date), DRS_date = as.Date(DRS_date))
+rev_demog$lethality_max <- as.numeric(rev_demog$lethality_max)
+rev_demog$intent_worst_planning <- as.numeric(rev_demog$intent_worst_planning)
+summary(rev_demog)
+
+
+#creating additional group subdivisions
+# creating labels for low- and high-lethality groups
+rev_demog$group1_7_labels[rev_demog$group1_7 == '1'] <- 'healthy controls'
+rev_demog$group1_7_labels[rev_demog$group1_7 == '2'] <- 'depressed controls'
+rev_demog$group1_7_labels[rev_demog$group1_7 == '4'] <- 'ideators'
+rev_demog$group1_7_labels[rev_demog$group1_7 == '6'] <- 'low-lethality attempters'
+rev_demog$group1_7_labels[rev_demog$group1_7 == '7'] <- 'high-lethality attempters'
+
+rev_demog$group1_7_labels <- factor(rev_demog$group1_7_labels)
+
+# early vs. late-onset = before or after 50 years of age (median of age at 1st attempt = 50.5)
+median(rev_demog$age_first_attempt[rev_demog$group1_5=='5'])
+
+rev_demog$gp_age <- factor(rev_demog$group1_5, levels=c(levels(rev_demog$group1_5), '10', '11'))
+rev_demog$gp_age[rev_demog$age_first_attempt < 51] <- '10'
+rev_demog$gp_age[rev_demog$age_first_attempt > 50] <- '11'
+
+rev_demog$gp_age <- factor(rev_demog$gp_age)
+
+rev_demog$gp_age_labels[rev_demog$gp_age == '1'] <- 'healthy controls'
+rev_demog$gp_age_labels[rev_demog$gp_age == '2'] <- 'depressed controls'
+rev_demog$gp_age_labels[rev_demog$gp_age == '4'] <- 'ideators'
+rev_demog$gp_age_labels[rev_demog$gp_age == '10'] <- 'early-onset attempters'
+rev_demog$gp_age_labels[rev_demog$gp_age == '11'] <- 'late-onset attempters'
+
+rev_demog$gp_age_labels <- factor(rev_demog$gp_age_labels)
+
+# low- vs. high-planning = intent scale, planning subscale (median of planning score in all attempters = 8)
+median(rev_demog$intent_worst_planning[rev_demog$group1_5=='5'], na.rm = TRUE)
+
+rev_demog$gp_planning <- factor(rev_demog$group1_5, levels=c(levels(rev_demog$group1_5), '14', '15'))
+
+rev_demog$gp_planning[rev_demog$intent_worst_planning < 9] <- '14'
+rev_demog$gp_planning[rev_demog$intent_worst_planning > 8] <- '15'
+
+rev_demog$gp_planning <- factor(rev_demog$gp_planning)
+
+rev_demog$gp_planning_labels[rev_demog$gp_planning == '1'] <- 'healthy controls'
+rev_demog$gp_planning_labels[rev_demog$gp_planning == '2'] <- 'depressed controls'
+rev_demog$gp_planning_labels[rev_demog$gp_planning == '4'] <- 'ideators'
+rev_demog$gp_planning_labels[rev_demog$gp_planning == '14'] <- 'low-planning attempters'
+rev_demog$gp_planning_labels[rev_demog$gp_planning == '15'] <- 'high-planning attempters'
+
+rev_demog$gp_planning_labels <- factor(rev_demog$gp_planning_labels)
+
+# saving dataset
+save(rev_demog, file = 'rev_demog.Rda')
+
+rev <- left_join(rev_prov, rev_demog, by=c("ID"))
+
+save(rev, file = 'rev.Rda')
+write.csv(rev,file="rev.csv")
+
+
+
+#adding demographic variables to short version of dataset (no trial-by-trial variables)
+rev_short$ID <- as.factor(rev_short$ID)
+rev_short <- left_join(rev_short, rev_demog, by=c("ID"))
+
+save(rev_short, file = 'rev_short.Rda')
+
+######################## Analysis begins here ###########################
 
 #correlations, plots and histograms
 barchart(rev$choice)
@@ -108,6 +183,36 @@ ggsave("rev_learning_curves_individual.pdf", p, width = 20, height = 20)
 p <- ggplot(rev,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
 ggsave("rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
 
+# demographic table
+library(compareGroups)
+chars <- rev_short[,c('age_baseline','race','gender','education','marital','HRSD_no_suic', 'anxiety_lifetime', 'substance_lifetime','EXIT_total', 'DRS_total', 'age_first_attempt','attempts_tot_baseline','attempts_tot_followUp','ideation_current_baseline','intent_worst_total','intent_worst_planning','lethality_max')]
+# describe.by(chars,group = df$group_early_no_break)
+
+rev_short$HRSD_no_suic[rev_short$group1_5 == '1'] <- NA
+rev_short$substance_lifetime[rev_short$group1_5 == '1'] <- NA
+rev_short$anxiety_lifetime[rev_short$group1_5 == '1'] <- NA
+rev_short$ideation_current_baseline[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'] <- NA
+rev_short$lethality_max[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+rev_short$age_first_attempt[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+rev_short$intent_worst_planning[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+rev_short$intent_worst_total[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+rev_short$attempts_tot_baseline[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+rev_short$attempts_tot_followUp[rev_short$group1_5 == '1'| rev_short$group1_5 == '2'| rev_short$group1_5 == '4'] <- NA
+
+c <- compareGroups(chars,rev_short$group1_5, show.descr = TRUE)
+tc <- createTable(c, hide.no = 0, digits = 1, show.p.mul = TRUE)
+tc
+
+export2html(tc, "reversal_table1_groups1_5.html")
+
+#missingness for demographics
+library(mice)
+md.pattern(rev_short)
+
+library(VIM)
+rev_short_aggr = aggr(rev_short, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labels=names(rev_short), cex.axis=.7, gap=3, ylab=c("Proportion of missingness","Missingness Pattern"))
+
+rev_short$group1_5[is.na(rev_short$HRSD)]
 
 # toy regressions
 # choice
