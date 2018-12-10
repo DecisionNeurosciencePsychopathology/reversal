@@ -189,8 +189,20 @@ p <- ggplot(rev,aes(trial,as.numeric(choice))) + geom_line() + facet_wrap(~ID)
 ggsave("rev_learning_curves_individual.pdf", p, width = 20, height = 20)
 
 # giant spaghetti plot -- some variability, not a whole lot
+<<<<<<< HEAD
 p <- ggplot(rev,aes(trial,as.numeric(choice), color = group1_7_labels)) + geom_smooth(method = 'loess') 
 ggsave("rev_smooth_learning_curves_individual.pdf", p, width = 20, height = 20)
+=======
+p <- ggplot(rev[!is.na(rev$group1_7_labels) & rev$trial>41,],aes(trial,as.numeric(choice)-1, color = group1_7_labels)) +
+  geom_smooth(method="glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3)) 
+ggsave("post_rev_smooth_learning_curves_by_group.pdf", p, width = 6, height = 6)
+
+# reward
+p <- ggplot(rev[!is.na(rev$group1_7_labels),],aes(trial,as.numeric(reinf), color = group1_7_labels)) + 
+  geom_smooth(method="glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 6)) 
+ggsave("rev_smooth_reinf_by_group.pdf", p, width = 20, height = 20)
+
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
 
 # inspect RT timecourses
 p <- ggplot(rev,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
@@ -229,6 +241,11 @@ rev_short_aggr = aggr(rev_short, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labe
 
 rev_short$group1_5[is.na(rev_short$HRSD)]
 
+# make HL the reference group
+rev$group1_7_labels <- relevel(rev$group1_7_labels, ref = 'high-lethality attempters')
+rev$group1_7_txt_LL <- relevel(rev$group1_7_labels, ref = 'low-lethality attempters')
+
+
 # toy regressions
 # choice
 c0 <-   glmer(
@@ -263,7 +280,11 @@ post1 <-   glmer(
   stay ~  (scale(-1/trial) + reinf + group1_7_labels)^2  +
     (1 | ID),
   family = binomial(),
+<<<<<<< HEAD
   data = rev[rev$trial>40,],
+=======
+  data = rev[rev$trial>41,],
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1)
 car::Anova(post1, '3')
@@ -273,20 +294,52 @@ post1a <-   glmer(
   as.factor(stim_choice) ~  scale(-1/trial) * group1_5  +
     (1 | ID),
   family = binomial(),
+<<<<<<< HEAD
   data = rev[rev$trial>40,],
+=======
+  data = rev[rev$trial>41,],
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1a)
 car::Anova(post1a, '3')
 
 post1b <-   glmer(
+<<<<<<< HEAD
   as.factor(stim_choice) ~  scale(-1/trial) * group1_7  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>40,],
+=======
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>41,],
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1b)
 car::Anova(post1b, '3')
 
+<<<<<<< HEAD
+=======
+post1c <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  + scale(-1/trial) * scale(age_baseline) +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>41,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1c)
+car::Anova(post1c, '3')
+
+post1d <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_txt_LL  + 
+    scale(-1/trial) * scale(age_baseline) + scale(-1/trial) * scale(education) +
+     (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>41,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1d)
+car::Anova(post1c, '3')
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
 
 pre1b <-   glmer(
   stim_choice ~  scale(-1/trial) * group1_7  +
@@ -324,6 +377,7 @@ summary(r0)
 car::Anova(r0,'3')
 
 r1 <- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
+<<<<<<< HEAD
                        (reinf.lag1 + stay.lag1 + newgrp) ^2 +
                    (1 | ID),
                  data = revclean[revclean$trial>40,])
@@ -337,6 +391,14 @@ r2<- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) +
 summary(r2)
 car::Anova(r2,'3')
 
+=======
+                       (reinf.lag1 + stay.lag1 + group1_7_labels) ^2 +
+                   (1 | ID),
+                 data = revclean)
+summary(r1)
+car::Anova(r0,'3')
+
+>>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
 # rev_id <- read.csv('rev_ID.csv')
 # rev_id$ID <- as.character(rev_id$ID)
 #
