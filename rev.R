@@ -28,7 +28,7 @@ rm(list=ls())
 setwd("~/Dropbox/USA/Pittsburgh/GitHub/reversal")
 
 # wd for Alex
-#setwd("~/code/reversal")
+setwd("~/code/reversal")
 
 load('rev.Rda')
 
@@ -98,7 +98,7 @@ rev_prov <- rev_prov %>% group_by(ID) %>% mutate(stay.lag1 = lag(stay, n=1, orde
 
 
 #adding demographic variables
-rev_demog <- read_excel("rev_iowa_demog.xlsx")
+rev_demog <- readxl::read_excel("rev_iowa_demog.xlsx")
 rev_demog <- transform(rev_demog, ID = as.factor(ID), race = as.factor(race), ethnicity = as.factor(ethnicity), gender = as.factor(gender),
                        marital = as.factor(marital), group1_5 = as.factor(group1_5), group1_7 = as.factor(group1_7), group1_5text = as.factor(group1_5text),  group1_5text2 = as.factor(group1_5text2),
                        method_most_lethal = as.factor(method_most_lethal), anxiety_lifetime = as.factor(anxiety_lifetime),substance_lifetime = as.factor(substance_lifetime), anxiety_current = as.factor(anxiety_current),substance_current = as.factor(substance_current))
@@ -106,6 +106,7 @@ rev_demog <- transform(rev_demog, consent_date_baseline = as.Date(consent_date_b
 rev_demog$lethality_max <- as.numeric(rev_demog$lethality_max)
 rev_demog$intent_worst_planning <- as.numeric(rev_demog$intent_worst_planning)
 summary(rev_demog)
+
 
 
 #creating additional group subdivisions
@@ -157,7 +158,15 @@ rev_demog$gp_planning_labels <- factor(rev_demog$gp_planning_labels)
 save(rev_demog, file = 'rev_demog.Rda')
 
 rev <- left_join(rev_prov, rev_demog, by=c("ID"))
+DEMO<-readxl::read_xlsx('ALL_SUBJECTS_DEMO.xlsx')
+rev$group1_7[which(is.na(rev$group1_7))]<-DEMO$GROUP12467[match(rev$ID[which(is.na(rev$group1_7))],DEMO$ID)]
 
+rev$group1_7_labels[rev$group1_7 == '1'] <- 'healthy controls'
+rev$group1_7_labels[rev$group1_7 == '2'] <- 'depressed controls'
+rev$group1_7_labels[rev$group1_7 == '4'] <- 'ideators'
+rev$group1_7_labels[rev$group1_7 == '6'] <- 'low-lethality attempters'
+rev$group1_7_labels[rev$group1_7 == '7'] <- 'high-lethality attempters'
+rev<-rev[which(!is.na(rev$group1_7)),] #221595 is actually from BPD? not even old enough...lol
 save(rev, file = 'rev.Rda')
 write.csv(rev,file="rev.csv")
 
@@ -179,10 +188,16 @@ hist(rev$RT)
 p <- ggplot(rev,aes(trial,as.numeric(choice))) + geom_line() + facet_wrap(~ID)
 ggsave("rev_learning_curves_individual.pdf", p, width = 20, height = 20)
 
+# giant spaghetti plot -- some variability, not a whole lot
+p <- ggplot(rev,aes(trial,as.numeric(choice), color = group1_7_labels)) + geom_smooth(method = 'loess') 
+ggsave("rev_smooth_learning_curves_individual.pdf", p, width = 20, height = 20)
+
 # inspect RT timecourses
 p <- ggplot(rev,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
 ggsave("rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
 
+
+p <- ggplot(rev[rev$trial %in% 11:80,],aes(trial/10,1000/RT)) + geom_line() + facet_wrap(~ID)
 # demographic table
 library(compareGroups)
 chars <- rev_short[,c('age_baseline','race','gender','education','marital','HRSD_no_suic', 'anxiety_lifetime', 'substance_lifetime','EXIT_total', 'DRS_total', 'age_first_attempt','attempts_tot_baseline','attempts_tot_followUp','ideation_current_baseline','intent_worst_total','intent_worst_planning','lethality_max')]
@@ -217,7 +232,7 @@ rev_short$group1_5[is.na(rev_short$HRSD)]
 # toy regressions
 # choice
 c0 <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev,
@@ -225,8 +240,8 @@ c0 <-   glmer(
 summary(c0)
 car::Anova(c0, type = 'III')
 
-c0post <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+post0 <-   glmer(
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>40,],
@@ -234,14 +249,54 @@ c0post <-   glmer(
 summary(c0post)
 car::Anova(c0post, type = 'III')
 
-c0pre <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+pre0 <-   glmer(
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial<41,],
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(c0pre)
 car::Anova(c0pre, type = 'III')
+
+# add group
+post1 <-   glmer(
+  stay ~  (scale(-1/trial) + reinf + group1_7_labels)^2  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1)
+car::Anova(post1, '3')
+
+# how about simple choice
+post1a <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_5  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1a)
+car::Anova(post1a, '3')
+
+post1b <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1b)
+car::Anova(post1b, '3')
+
+
+pre1b <-   glmer(
+  stim_choice ~  scale(-1/trial) * group1_7  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial<41,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(pre1b)
+car::Anova(pre1b, type = 'III')
+
 
 # diagnose RT data, deal with outliers
 hist(rev$RT[rev$RT<4000])
@@ -251,30 +306,56 @@ upper <- 4000
 lower <- 200
 revclean <- rev[rev$RT>lower & rev$RT<upper,]
 # inspect RT timecourses
-p <- ggplot(revclean,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
+p <- ggplot(revclean,aes(trial,1000/RT,color = group1_7_labels)) + geom_line() + facet_wrap(~ID)
 ggsave("censored_rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
 p <- ggplot(revclean,aes(trial,1000/RT)) + geom_smooth(method = 'loess')
 ggsave("censored_rev_rt_timecourses_group.pdf", p, width = 8, height = 6)
 
+p <- ggplot(revclean[!is.na(revclean$group1_7),],aes(trial,-1000/RT, color = group1_7_labels)) + geom_smooth(method = 'loess')
+ggsave("censored_rev_rt_timecourses_by_study_group.pdf", p, width = 8, height = 6)
+
+
 # example LME on censored RT data
 
-r0 <- lme4::lmer(1000/(RT) ~ I(1000/(RT.lag1)) + scale(trial) + reinf.lag1 * stay.lag1 +
+r0 <- lme4::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + reinf.lag1 * stay.lag1 +
                        (1 | ID),
                      data = revclean)
 summary(r0)
 car::Anova(r0,'3')
 
+r1 <- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
+                       (reinf.lag1 + stay.lag1 + newgrp) ^2 +
+                   (1 | ID),
+                 data = revclean[revclean$trial>40,])
+summary(r1)
+car::Anova(r0,'3')
+
+r2<- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
+                        (reinf.lag1 + stay.lag1 + newgrp + pre_post) ^2 +reinf.lag1 * newgrp * pre_post
+                        (1 | ID),
+                      data = rev_2)
+summary(r2)
+car::Anova(r2,'3')
+
 # rev_id <- read.csv('rev_ID.csv')
 # rev_id$ID <- as.character(rev_id$ID)
-# 
+#
 # View(rev_id)
 # for(i in 1:length(rev_id))
 #   x <- rev[rev$ID == rev_id[i,],]
 # { ggplot(data=x, aes(x=trial, y=stim_choice)) +
 #     geom_line()
-#   
+#
 # }
 
+revclean_sp<-split(revclean,revclean$ID)
+rev_ref<-data.frame(trial=1:80,pre_post=c(rep(0,40),rep(1,40)))
+
+rev_2<-do.call(rbind,lapply(revclean_sp,function(dfx){
+  #message(unique(dfx$ID))
+  dfx$pre_post<-as.factor(rev_ref$pre_post[match(dfx$trial,rev_ref$trial)])
+  return(dfx)
+}))
 
 
 rev$stim_choice <- as.factor(rev$stim_choice)
