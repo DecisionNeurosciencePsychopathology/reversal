@@ -28,7 +28,7 @@ rm(list=ls())
 setwd("~/Dropbox/USA/Pittsburgh/GitHub/reversal")
 
 # wd for Alex
-#setwd("~/code/reversal")
+setwd("~/code/reversal")
 
 load('rev.Rda')
 
@@ -179,6 +179,10 @@ hist(rev$RT)
 p <- ggplot(rev,aes(trial,as.numeric(choice))) + geom_line() + facet_wrap(~ID)
 ggsave("rev_learning_curves_individual.pdf", p, width = 20, height = 20)
 
+# giant spaghetti plot -- some variability, not a whole lot
+p <- ggplot(rev,aes(trial,as.numeric(choice), color = group1_7_labels)) + geom_smooth(method = 'loess') 
+ggsave("rev_smooth_learning_curves_individual.pdf", p, width = 20, height = 20)
+
 # inspect RT timecourses
 p <- ggplot(rev,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
 ggsave("rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
@@ -217,7 +221,7 @@ rev_short$group1_5[is.na(rev_short$HRSD)]
 # toy regressions
 # choice
 c0 <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev,
@@ -225,8 +229,8 @@ c0 <-   glmer(
 summary(c0)
 car::Anova(c0, type = 'III')
 
-c0post <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+post0 <-   glmer(
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>40,],
@@ -234,14 +238,54 @@ c0post <-   glmer(
 summary(c0post)
 car::Anova(c0post, type = 'III')
 
-c0pre <-   glmer(
-  stay ~  scale(trial) * reinf  +  
+pre0 <-   glmer(
+  stay ~  scale(trial) * reinf  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial<41,],
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(c0pre)
 car::Anova(c0pre, type = 'III')
+
+# add group
+post1 <-   glmer(
+  stay ~  (scale(-1/trial) + reinf + group1_7_labels)^2  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1)
+car::Anova(post1, '3')
+
+# how about simple choice
+post1a <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_5  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1a)
+car::Anova(post1a, '3')
+
+post1b <-   glmer(
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial>40,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(post1b)
+car::Anova(post1b, '3')
+
+
+pre1b <-   glmer(
+  stim_choice ~  scale(-1/trial) * group1_7  +
+    (1 | ID),
+  family = binomial(),
+  data = rev[rev$trial<41,],
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(pre1b)
+car::Anova(pre1b, type = 'III')
+
 
 # diagnose RT data, deal with outliers
 hist(rev$RT[rev$RT<4000])
@@ -251,28 +295,39 @@ upper <- 4000
 lower <- 200
 revclean <- rev[rev$RT>lower & rev$RT<upper,]
 # inspect RT timecourses
-p <- ggplot(revclean,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
+p <- ggplot(revclean,aes(trial,1000/RT,color = group1_7_labels)) + geom_line() + facet_wrap(~ID)
 ggsave("censored_rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
 p <- ggplot(revclean,aes(trial,1000/RT)) + geom_smooth(method = 'loess')
 ggsave("censored_rev_rt_timecourses_group.pdf", p, width = 8, height = 6)
 
+p <- ggplot(revclean[!is.na(revclean$group1_7),],aes(trial,-1000/RT, color = group1_7_labels)) + geom_smooth(method = 'loess')
+ggsave("censored_rev_rt_timecourses_by_study_group.pdf", p, width = 8, height = 6)
+
+
 # example LME on censored RT data
 
-r0 <- lme4::lmer(1000/(RT) ~ I(1000/(RT.lag1)) + scale(trial) + reinf.lag1 * stay.lag1 +
+r0 <- lme4::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + reinf.lag1 * stay.lag1 +
                        (1 | ID),
                      data = revclean)
 summary(r0)
 car::Anova(r0,'3')
 
+r1 <- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
+                       (reinf.lag1 + stay.lag1 + group1_7_labels) ^2 +
+                   (1 | ID),
+                 data = revclean)
+summary(r1)
+car::Anova(r0,'3')
+
 # rev_id <- read.csv('rev_ID.csv')
 # rev_id$ID <- as.character(rev_id$ID)
-# 
+#
 # View(rev_id)
 # for(i in 1:length(rev_id))
 #   x <- rev[rev$ID == rev_id[i,],]
 # { ggplot(data=x, aes(x=trial, y=stim_choice)) +
 #     geom_line()
-#   
+#
 # }
 
 
