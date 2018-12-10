@@ -226,6 +226,9 @@ rev_short_aggr = aggr(rev_short, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labe
 rev_short$group1_5[is.na(rev_short$HRSD)]
 
 # make HL the reference group
+rev$group1_7_labels <- relevel(rev$group1_7_labels, ref = 'high-lethality attempters')
+rev$group1_7_txt_LL <- relevel(rev$group1_7_labels, ref = 'low-lethality attempters')
+
 
 # toy regressions
 # choice
@@ -277,7 +280,7 @@ summary(post1a)
 car::Anova(post1a, '3')
 
 post1b <-   glmer(
-  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  +
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>41,],
@@ -286,7 +289,7 @@ summary(post1b)
 car::Anova(post1b, '3')
 
 post1c <-   glmer(
-  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  + scale(-1/trial) * scale(age_baseline) +
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  + scale(-1/trial) * scale(age_baseline) +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>41,],
@@ -295,7 +298,7 @@ summary(post1c)
 car::Anova(post1c, '3')
 
 post1d <-   glmer(
-  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  + 
+  as.factor(stim_choice) ~  scale(-1/trial) * group1_7_txt_LL  + 
     scale(-1/trial) * scale(age_baseline) + scale(-1/trial) * scale(education) +
      (1 | ID),
   family = binomial(),
@@ -303,7 +306,6 @@ post1d <-   glmer(
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1d)
 car::Anova(post1c, '3')
-
 
 pre1b <-   glmer(
   stim_choice ~  scale(-1/trial) * group1_7  +
