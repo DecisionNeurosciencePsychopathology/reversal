@@ -14,43 +14,36 @@ function  [fx] = f_rev_Qlearn1(x,theta,u,inF)
 % OUT:
 %   - fx: evolved q-values (1x1)
 %   - dfdx/dfdP: gradient of the q-values evolution function, wrt q-values
-%   and evolution parameter, respectively.F 
+%   and evolution parameter, respectively.F
 
 r = u(2); % make sure rewards are coded 0 = no reward, 1 = reward
- % theta(1) -- basic learning rate
-
+% theta(1) -- basic learning rate
+v = x(1);
 
 alpha = 1./(1+exp(-theta(1))); % learning rate is bounded between 0 and 1.
 
-v1 = x(1);
-v2 = - x(1);
-fx = zeros(length(x),1);
-
 if u(1)==1
-pe = r-v1; % prediction error
-fx(1) = v1 + alpha*pe;
+    pe = (r-v); % prediction error
 elseif u(1)==0
-pe = r-v2; % prediction error
-fx(1) = v1 - alpha*pe;
-end    
+    pe = (v-r); % prediction error
+end
+
+if inF.twoLR
+    alpha_re = 1./(1+exp(-theta(2)));
+    if pe >= 0
+        alpha_use = alpha;
+    elseif pe <0
+        alpha_use = alpha_re;
+    end
+else
+    alpha_use = alpha;
+end
 
 
-%tracking PEs for RT analyses
+fx(1) = v + alpha_use*pe;
 fx(2) = pe;
 
-%% one hidden state (value)
-% dfdx = zeros(size(x,1),1);
-% dfdx(1) = 1-alpha;
-% dfdP = alpha*(1-alpha)*pe;
 
-%% two hidden states (value + pe)
-% gradients' derivation
-% if u(1)==1
-%     dfdx = [1-alpha, 0;
-%             0, 1];
-%     dfdP = [alpha*(1-alpha)*pe(1),0];
-% else
-%     dfdx = [1, 0;
-%             0, 1-alpha];
-%     dfdP = [0,alpha*(1-alpha)*pe(2)];
-% end
+
+
+

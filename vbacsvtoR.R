@@ -16,3 +16,5 @@ for (z in 1:length(as.list(tempenvir))) {
   if (z==1) {as.list(tempenvir)[[z]]->allx}
   rbind(allx,as.list(tempenvir)[[z]])->allx
 }
+
+dx<- h5::h5file('vba/reversal_mfx.mat')

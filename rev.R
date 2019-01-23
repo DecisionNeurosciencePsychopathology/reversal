@@ -189,10 +189,10 @@ p <- ggplot(rev,aes(trial,as.numeric(choice))) + geom_line() + facet_wrap(~ID)
 ggsave("rev_learning_curves_individual.pdf", p, width = 20, height = 20)
 
 # giant spaghetti plot -- some variability, not a whole lot
-<<<<<<< HEAD
+
 p <- ggplot(rev,aes(trial,as.numeric(choice), color = group1_7_labels)) + geom_smooth(method = 'loess') 
 ggsave("rev_smooth_learning_curves_individual.pdf", p, width = 20, height = 20)
-=======
+
 p <- ggplot(rev[!is.na(rev$group1_7_labels) & rev$trial>41,],aes(trial,as.numeric(choice)-1, color = group1_7_labels)) +
   geom_smooth(method="glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3)) 
 ggsave("post_rev_smooth_learning_curves_by_group.pdf", p, width = 6, height = 6)
@@ -202,7 +202,6 @@ p <- ggplot(rev[!is.na(rev$group1_7_labels),],aes(trial,as.numeric(reinf), color
   geom_smooth(method="glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 6)) 
 ggsave("rev_smooth_reinf_by_group.pdf", p, width = 20, height = 20)
 
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
 
 # inspect RT timecourses
 p <- ggplot(rev,aes(trial,1000/RT)) + geom_line() + facet_wrap(~ID)
@@ -280,11 +279,7 @@ post1 <-   glmer(
   stay ~  (scale(-1/trial) + reinf + group1_7_labels)^2  +
     (1 | ID),
   family = binomial(),
-<<<<<<< HEAD
   data = rev[rev$trial>40,],
-=======
-  data = rev[rev$trial>41,],
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1)
 car::Anova(post1, '3')
@@ -294,33 +289,22 @@ post1a <-   glmer(
   as.factor(stim_choice) ~  scale(-1/trial) * group1_5  +
     (1 | ID),
   family = binomial(),
-<<<<<<< HEAD
   data = rev[rev$trial>40,],
-=======
-  data = rev[rev$trial>41,],
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
+
+
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1a)
 car::Anova(post1a, '3')
 
 post1b <-   glmer(
-<<<<<<< HEAD
-  as.factor(stim_choice) ~  scale(-1/trial) * group1_7  +
-    (1 | ID),
-  family = binomial(),
-  data = rev[rev$trial>40,],
-=======
   as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  +
     (1 | ID),
   family = binomial(),
   data = rev[rev$trial>41,],
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1b)
 car::Anova(post1b, '3')
 
-<<<<<<< HEAD
-=======
 post1c <-   glmer(
   as.factor(stim_choice) ~  scale(-1/trial) * group1_7_labels  + scale(-1/trial) * scale(age_baseline) +
     (1 | ID),
@@ -339,7 +323,7 @@ post1d <-   glmer(
   glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(post1d)
 car::Anova(post1c, '3')
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
+
 
 pre1b <-   glmer(
   stim_choice ~  scale(-1/trial) * group1_7  +
@@ -358,6 +342,8 @@ rt_dist <- psych::describe(rev$RT, IQR = TRUE, quant = c(.9, .95,.99))
 upper <- 4000
 lower <- 200
 revclean <- rev[rev$RT>lower & rev$RT<upper,]
+revclean$newgrp<-factor(revclean$group1_7_labels,levels = c("healthy controls","depressed controls","ideators","low-lethality attempters","high-lethality attempters"))
+
 # inspect RT timecourses
 p <- ggplot(revclean,aes(trial,1000/RT,color = group1_7_labels)) + geom_line() + facet_wrap(~ID)
 ggsave("censored_rev_rt_timecourses_individual.pdf", p, width = 20, height = 20)
@@ -369,20 +355,25 @@ ggsave("censored_rev_rt_timecourses_by_study_group.pdf", p, width = 8, height = 
 
 
 # example LME on censored RT data
-
-r0 <- lme4::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + reinf.lag1 * stay.lag1 +
+load("/Volumes/bek/reversal/reversalvba.rdata")
+rev_vba_df<-do.call(rbind,lapply(as.list(tempenvir),function(dfx){dfx$PE_lag<-dplyr::lag(scale(dfx$PE));dfx$trial<-1:nrow(dfx);dfx$pre_post<-as.numeric(dfx$trial>40);return(dfx)}))
+revclean_wvba<-merge(revclean,rev_vba_df,by.x = c("ID","trial"),by.y = c("ID","trial"),all.x = T)
+revclean_wvba$pre_post[is.na(revclean_wvba$pre_post)]<-1
+revclean_wvba$pre_post<-as.factor(revclean_wvba$pre_post)
+r0 <- lme4::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1))*pre_post + scale(-1/trial)*pre_post + reinf.lag1* newgrp*pre_post + stay.lag1* newgrp*pre_post + abs(PE_lag) * newgrp*pre_post +
                        (1 | ID),
-                     data = revclean)
+                     data = revclean_wvba[revclean$trial<=40,])
 summary(r0)
 car::Anova(r0,'3')
 
 r1 <- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
-<<<<<<< HEAD
-                       (reinf.lag1 + stay.lag1 + newgrp) ^2 +
+                       (reinf.lag1 * stay.lag1 * newgrp) +
                    (1 | ID),
-                 data = revclean[revclean$trial>40,])
+                 data = revclean[revclean$trial<=40,])
 summary(r1)
 car::Anova(r0,'3')
+
+
 
 r2<- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) + 
                         (reinf.lag1 + stay.lag1 + newgrp + pre_post) ^2 +reinf.lag1 * newgrp * pre_post
@@ -391,14 +382,8 @@ r2<- lmerTest::lmer(-1000/(RT) ~ scale(-1000/(RT.lag1)) + scale(-1/trial) +
 summary(r2)
 car::Anova(r2,'3')
 
-=======
-                       (reinf.lag1 + stay.lag1 + group1_7_labels) ^2 +
-                   (1 | ID),
-                 data = revclean)
-summary(r1)
-car::Anova(r0,'3')
 
->>>>>>> 71f036b3b952f064a2f642e0a0d67fd4b6d44682
+
 # rev_id <- read.csv('rev_ID.csv')
 # rev_id$ID <- as.character(rev_id$ID)
 #
@@ -447,14 +432,87 @@ NU<-lapply(rev_sp,function(x) {
 
 
 
+####Let's sample 10 or 20 trials;
+samplerate<-4
+gx<-rep(1:(80/samplerate),samplerate)
+gx<-gx[order(gx)]
+dfgx<-data.frame(trial=1:80,gx=gx)
+rev_sumstats<-lapply(rev_sep,function(dfx){
+  dfx$gxindx<-dfgx$gx [match(dfx$trial,dfgx$trial)]
+  dfx$switch<- dfx$stim_choice!=lag(dfx$stim_choice)
+  lsx<-split(dfx,dfx$gxindx)
+  dfy_all<-do.call(rbind,lapply(lsx,function(dfy){
+    data.frame(
+    stim1_picked=length(which(as.character(dfy$stim_choice)=='1'))/samplerate,
+    stim2_picked=length(which(as.character(dfy$stim_choice)=='2'))/samplerate,
+    swtichrate=length(which(dfy$switch))/samplerate,
+    winstay=length(which(!dfy$switch & dfy$reinf.lag1))/length(which(dfy$reinf.lag1)),
+    winstay_s1=length(which(!dfy$switch & dfy$reinf.lag1 & as.character(dfy$stim_choice)=='1'))/length(which(dfy$reinf.lag1 & as.character(dfy$stim_choice)=='1')),
+    winstay_s2=length(which(!dfy$switch & dfy$reinf.lag1 & as.character(dfy$stim_choice)=='2'))/length(which(dfy$reinf.lag1 & as.character(dfy$stim_choice)=='2')),
+    loseswitch=length(which(dfy$switch & !dfy$reinf.lag1))/samplerate,
+    winswitch=length(which(dfy$switch & dfy$reinf.lag1))/samplerate,
+    losestay=length(which(!dfy$switch & !dfy$reinf.lag1))/samplerate,
+    losestay_s1=length(which(!dfy$switch & !dfy$reinf.lag1 & as.character(dfy$stim_choice)=='1'))/samplerate,
+    losestay_s2=length(which(!dfy$switch & !dfy$reinf.lag1 & as.character(dfy$stim_choice)=='2'))/samplerate,
+    u_rt_overall=mean(dfy$RT,na.rm=T),
+    u_rt_s1=mean(dfy$RT[dfy$stim_choice=="1"],na.rm=T),
+    u_rt_s2=mean(dfy$RT[dfy$stim_choice=="2"],na.rm=T),
+    u_rt_switch=mean(dfy$RT[dfy$switch],na.rm=T),
+    u_rt_reinf=mean(dfy$RT[dfy$reinf],na.rm=T),
+    u_rt_winstay=mean(dfy$RT[!dfy$switch & dfy$reinf.lag1],na.rm=T),
+    u_rt_loseswitch=mean(dfy$RT[dfy$switch & !dfy$reinf.lag1],na.rm=T),
+    u_rt_winswitch=mean(dfy$RT[dfy$switch & dfy$reinf.lag1],na.rm=T),
+    u_rt_losestay=mean(dfy$RT[!dfy$switch & !dfy$reinf.lag1],na.rm=T)
+    )
+  })
+  )
+  dfy_all$epo_indx<-1: (80/samplerate)
+  dfy_all$ID<-unique(dfx$ID)
+  dfy_all$grp<-unique(dfx$group1_7_labels)
+  dfy_all$one_over_two<-dfy_all$stim1_picked > dfy_all$stim2_picked
+  return(dfy_all)
+})
+
+rev_sum<-do.call(rbind,rev_sumstats)
+rev_sum<-rev_sum[!is.na(rev_sum$grp),]
+ggplot(rev_sum,aes(x=epo_indx,y = loseswitch,fill=grp))+geom_histogram(stat="summary",fun.y="mean",position="dodge")
 
 
 
 
+# plot moving stats for win-switches and lose-switches
+rev<-rev[order(rev$ID),]
+rev_sp<-split(rev,rev$ID)
+rev<-do.call(rbind,lapply(rev_sp,function(dfx){
+  dfx$RT_sc<-scale(dfx$RT,center = T,scale = T)
+  dfx$pre_post<-as.numeric(dfx$trial>40)
+  return(dfx)
+}))
+
+rev$reinf_lag_char<-NA
+rev$reinf_lag_char[rev$reinf.lag1]<-"Reinf"
+rev$reinf_lag_char[!rev$reinf.lag1]<-"No_reinf"
+
+ggplot(rev[!is.na(rev$reinf.lag1),], aes(trial,as.numeric(stay),  color = group1_7_labels)) + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 8)) + 
+  facet_wrap(~reinf.lag1)
+
+ggplot(rev[!is.na(rev$reinf.lag1) & !is.na(rev$stay),], aes(trial,RT_sc,  color = group1_7_labels)) + geom_smooth() + 
+  facet_wrap(~reinf_lag_char+stay)
+
+ggplot(rev[!is.na(rev$reinf.lag1),], aes(trial,RT_sc,  color = group1_7_labels)) + geom_smooth() + 
+  facet_wrap(~reinf_lag_char+stim_choice)
+
+c0 <-   glmer(
+  stay ~  scale(trial) * reinf  +
+    (1 | ID),
+  family = binomial(),
+  data = rev,
+  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(c0)
+car::Anova(c0, type = 'III')
 
 
-
-
-
+rev_design <- read.csv("data/rev_design.csv",stringsAsFactors = F)
+ggplot(rev_design, aes(trial,as.numeric(corr_stim))) + geom_point() + facet_wrap(~stim1feed)
 
 
